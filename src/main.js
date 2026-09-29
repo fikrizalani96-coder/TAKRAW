@@ -44,10 +44,20 @@ function pickQuality(q) {
 }
 function ensureRenderer(quality) {
   if (renderer) return;
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: quality !== 'low', powerPreference: 'high-performance', preserveDrawingBuffer: !!params.get('shot') });
+  try {
+    renderer = createRenderer(quality); onResize();
+  } catch (e) {
+    console.error(e);
+    menu.overlay(`<h1 style="font-size:28px">WebGL is not available</h1><p class="sub">This game needs a browser with WebGL 2 (Chrome, Edge, Firefox, Safari 15+). Try enabling hardware acceleration, then reload.</p>`);
+    throw e;
+  }
+}
+function createRenderer(quality) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: quality !== 'low', powerPreference: 'high-performance', preserveDrawingBuffer: !!params.get('shot') });
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.02; renderer.outputColorSpace = THREE.SRGBColorSpace;
-  app.renderer = renderer; onResize();
+  app.renderer = renderer;
+  return renderer;
 }
 function onResize() {
   if (!renderer) return;
