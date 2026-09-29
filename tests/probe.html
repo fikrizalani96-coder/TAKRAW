@@ -1,0 +1,5 @@
+<!doctype html><html><body><canvas id=c width=200 height=200></canvas>
+<script>
+const gl = document.getElementById('c').getContext('webgl2');
+window.__probe = gl ? { ok:true, renderer: gl.getParameter(gl.RENDERER), ver: gl.getParameter(gl.VERSION), maxTex: gl.getParameter(gl.MAX_TEXTURE_SIZE), maxVU: gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS) } : { ok:false };
+</script></body></html>

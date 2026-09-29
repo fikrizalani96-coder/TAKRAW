@@ -1,0 +1,42 @@
+import * as THREE from 'three';
+import { getBodyKit, getHeadGeo, createHuman } from '../src/character/humanFactory.js';
+import { TEAMS } from '../src/character/kits.js';
+import { randomFace } from '../src/character/head.js';
+import { makeRng } from '../src/util/math.js';
+import { RigPoser, REST_POSE, STAND_POSE, P } from '../src/anim/pose.js';
+
+const q = new URLSearchParams(location.search);
+const log = (s) => { document.getElementById('log').textContent += s + '\n'; };
+const W = +q.get('w') || innerWidth, H = +q.get('h') || innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2b2f38);
+scene.add(new THREE.HemisphereLight(0xdde6ff, 0x554433, 1.1));
+const dl = new THREE.DirectionalLight(0xffffff, 2.4); dl.position.set(2, 4, 4); scene.add(dl);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshStandardMaterial({ color: 0xc8506a, roughness: 0.7 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const cam = new THREE.PerspectiveCamera(+q.get('fov') || 30, W / H, 0.05, 50);
+const t0 = performance.now();
+const team = TEAMS[q.get('team') || 'THA'];
+const quality = q.get('quality') || 'high';
+const kitB = await getBodyKit(q.get('build') || 'killer', quality);
+log(`kit built ${(performance.now() - t0).toFixed(0)}ms`);
+const rng = makeRng(+q.get('seed') || 7);
+const face = randomFace(rng);
+const t1 = performance.now();
+const headGeo = await getHeadGeo(kitB, 'f1', face);
+const human = createHuman(kitB, headGeo, { skin: +q.get('skin') || 1, hairStyle: q.get('hair') || 'short', hairColor: 0, face, faceKey: 'f1', kit: team.kit, number: 25, name: 'WONGSA', outfit: q.get('outfit') || 'sport', accessories: { knee: true, wrist: true }, barefoot: q.get('bare') === '1' });
+log(`human ${(performance.now() - t1).toFixed(0)}ms  verts ${human.meshes.reduce((a, m) => a + m.geometry.getAttribute('position').count, 0)}`);
+log(human.meshes.map((m) => m.name + ':' + m.geometry.getAttribute('position').count).join(' '));
+scene.add(human.group);
+const poses = { rest: REST_POSE, stand: STAND_POSE,
+  kick: P({ L: { hp_f: 100, kn_f: 30, an_p: 40 }, R: { hp_f: 10, kn_f: 30 }, spine: [10], LR: { sh_a: 40, el_f: 40 } }, STAND_POSE),
+  ready: P({ hy: -0.14, spine: [18], chest: [6], neck: [-14], LR: { hp_f: 40, hp_a: 8, kn_f: 60, an_p: 10, sh_f: 35, sh_a: 18, el_f: 70, fa_p: 40 } }, STAND_POSE) };
+new RigPoser(human.rig).apply(poses[q.get('pose') || 'stand']);
+human.rig.root.updateMatrixWorld(true);
+const az = (+q.get('az') || 0) * Math.PI / 180, dist = +q.get('dist') || 4.0, cy = +q.get('cy') || 0.95;
+human.group.rotation.y = 0;
+cam.position.set(Math.sin(az) * dist, cy + 0.15, Math.cos(az) * dist); cam.lookAt(0, cy, 0);
+renderer.render(scene, cam);
+window.__ready = true; window.__info = document.getElementById('log').textContent;

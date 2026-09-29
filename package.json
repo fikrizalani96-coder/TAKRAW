@@ -1,0 +1,24 @@
+{
+  "name": "sepak-takraw-game-challenge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sepak Takraw Game Challenge - ISTAF regu match simulation built with three.js",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "node tests/run.mjs",
+    "test:anim": "node tests/anim-catalog.mjs",
+    "test:sim": "node tests/sim.mjs",
+    "test:shots": "node tests/shots.mjs"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0",
+    "vite": "^7.0.0",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}
