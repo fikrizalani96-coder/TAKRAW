@@ -32,7 +32,8 @@ for (let seed = 1; seed <= N; seed++) {
     const hist = ended.history.map((h) => h.join('-')).join(', ');
     console.log(`seed ${seed}: winner team ${ended.winner}, sets ${ended.sets.join('-')}, [${hist}]  game-time ${(m.time / 60).toFixed(1)}min  wall ${secs}s  rallies ${rallies} avg touches ${(sumRally / rallies).toFixed(1)} longest ${maxRally}`);
     // invariants: each finished set ends by ISTAF rules
-    for (const h of ended.history) { const hi = Math.max(...h), lo = Math.min(...h); if (!(hi >= 11 && (hi - lo >= 2 || hi === (fmt === 'istaf' ? 25 : 13)))) { console.log('  BAD set score', h); totalFail++; } }
+    for (const h of ended.history) { const hi = Math.max(...h), lo = Math.min(...h); const caps = fmt === 'istaf' ? [25, 17] : fmt === 'kampung' ? [17] : [13];   // 21-set cap 25; decider (15) cap 17
+    if (!(hi >= 11 && (hi - lo >= 2 || caps.includes(hi)))) { console.log('  BAD set score', h); totalFail++; } }
   }
   if (seed === 1) { console.log('  result reasons:', JSON.stringify(faultsByType)); console.log('  skills used:', JSON.stringify(skillCount)); }
 }

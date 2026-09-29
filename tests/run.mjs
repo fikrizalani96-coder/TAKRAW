@@ -10,6 +10,7 @@ const suites = [
   ['ISTAF rules', ['tests/rules.mjs']],
   ['AI-vs-AI match soak (ISTAF, 2 seeds)', ['tests/sim.mjs', '2', 'istaf']],
   ['AI-vs-AI match soak (Kampung, 2 seeds)', ['tests/sim.mjs', '2', 'kampung']],
+  ['court symmetry (AI-vs-AI, 32 seeds)', ['tests/symmetry.mjs', '32']],
   ['assist-only human team vs AI', ['tests/humansim.mjs', '3', 'quick', 'passive']],
 ];
 if (browser) {

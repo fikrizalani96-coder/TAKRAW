@@ -1,0 +1,25 @@
+// Walk through the menu screens in a given viewport and capture screenshots. Usage: node tests/menus.mjs <w> <h> <prefix>
+import { chromium } from 'playwright-core';
+const [,, w = '390', h = '844', pre = 'tests/out/menu'] = process.argv;
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const p = await b.newPage({ viewport: { width: +w, height: +h }, hasTouch: +w < 700, isMobile: +w < 700 });
+const errs = [];
+p.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) errs.push(m.text().slice(0, 300)); });
+p.on('pageerror', (e) => errs.push('PAGEERROR ' + e.message));
+await p.goto('http://localhost:5173/?shot=1');
+await p.waitForSelector('.menu');
+await p.screenshot({ path: `${pre}_title.png` });
+const btns = await p.$$eval('[data-a]', (n) => n.map((e) => e.dataset.a));
+console.log('title buttons:', btns.join(','));
+await p.click('[data-a="play"]'); await p.waitForTimeout(400);
+await p.screenshot({ path: `${pre}_setup.png` });
+console.log('setup buttons:', (await p.$$eval('[data-a]', (n) => n.map((e) => e.dataset.a))).join(','));
+await p.click('[data-a="start"]').catch(() => console.log('no go button')); 
+await p.waitForFunction('window.__stgc && window.__stgc.match', null, { timeout: 240000 }).catch(() => errs.push('game did not start'));
+await p.waitForTimeout(1500);
+await p.screenshot({ path: `${pre}_game.png` });
+console.log('game started:', await p.evaluate(() => !!(window.__stgc && window.__stgc.hc)) ? 'human' : 'spectate');
+await p.keyboard.press('Escape'); await p.waitForTimeout(500);
+await p.screenshot({ path: `${pre}_pause.png` });
+if (errs.length) console.log('ERRORS:\n' + errs.join('\n')); else console.log('no console errors');
+await b.close();

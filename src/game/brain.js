@@ -148,7 +148,7 @@ export class TeamBrain {
         if (!f) continue;
         let cost = f.cost + (ROLE_BIAS[idx][p.role] ?? 0.3);
         if (skd.air) cost -= 0.55 * p.stats.jump;                 // spikes are the preferred finish
-        if (skd.air) cost += 0.12 * (1 - (SPIKE_W[sk] ?? 0.3)) + this.m.rng() * 0.18;
+        if (skd.air) cost += 0.12 * (1 - (SPIKE_W[sk] ?? 0.3)) + this.m.rng() * 0.18 - (sk === this.spikePref(p) ? 0.5 : 0);
         if (skd.ground) cost += 0.25;
         if (this.plan && this.plan.player === p && this.plan.skillKey === sk) cost -= 0.12;   // hysteresis
         if (!best || cost < best.cost) best = { ...f, cost, player: p };
@@ -161,6 +161,18 @@ export class TeamBrain {
     this.plan = best;
   }
 
+  /** Flair: each set the attacker leans toward one finishing technique (weighted lottery, stable until the next touch). */
+  spikePref(p) {
+    const m = this.m, key = m.lastHitTime + '|' + p.id;
+    if (this._pref && this._pref.key === key) return this._pref.sk;
+    const flair = 0.6 + 0.5 * (m.diff?.aggr ?? 0.75);
+    let tot = 0; const w = ATTACK_AIR.map((k) => { const v = (SPIKE_W[k] ?? 0.3) ** (2 - flair) ; tot += v; return v; });
+    let r = m.rng() * tot, sk = ATTACK_AIR[0];
+    for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { sk = ATTACK_AIR[i]; break; } }
+    this._pref = { key, sk };
+    return sk;
+  }
+
   canAttack(p, idx) {
     if (idx !== 3) return false;
     return true;
@@ -171,7 +183,8 @@ export class TeamBrain {
     if (idx === 1) {
       // face the setting spot; the ball comes from the front so this is roughly the net
       const tgt = this.setterSpot(p);
-      return Math.atan2(tgt.x - p.x, tgt.z - p.z) * 0.6 + net * 0.4 + (Math.abs(wrapPi(Math.atan2(tgt.x - p.x, tgt.z - p.z) - net)) > 2 ? 0 : 0);
+      // rotation-equivariant blend: 60% toward the setter, 40% square to the net (angles wrapped around the net axis)
+      return net + wrapPi(Math.atan2(tgt.x - p.x, tgt.z - p.z) - net) * 0.6;
     }
     return net;
   }
@@ -206,7 +219,7 @@ export class TeamBrain {
     // idx 3: attack or free ball
     const spike = plan.skillKey.startsWith('spike') || plan.skillKey === 'atk.head' || plan.skillKey === 'atk.kick';
     const tgt = this.chooseAttackTarget(spike);
-    return { kind: spike ? 'attack' : 'over', target: tgt, power: spike ? 0.75 + 0.25 * p.stats.power : 0.3 };
+    return { kind: spike ? 'attack' : 'over', target: tgt, power: spike ? (0.42 + 0.58 * this.m.rng()) * (0.85 + 0.15 * p.stats.power) : 0.3 };   // mix of placed and full-power finishes
   }
 
   chooseAttackTarget(hard) {
@@ -288,6 +301,16 @@ export class TeamBrain {
     } else if (!ballOurs) {
       // opponent has the ball: base defence, blockers at the net when a spike is coming
       for (const bl of this.blocks) targets[bl.player.index] = { x: bl.x, z: s * 0.62, block: true };
+      // read the attacker: back-court defenders start moving toward the anticipated landing zone as the
+      // attacker commits (imperfect read: gaussian error, worse on lower difficulties)
+      const op = this.opp.plan;
+      if (op && op.idx === 3 && op.intent && (op.intent.kind === 'attack' || op.intent.kind === 'over') && op.intent.target && op.tStart - m.time < 0.85) {
+        if (!op.read) { const tg = op.aim || op.intent.target, sg = 0.55 * m.diff.react; op.read = { x: tg.x + m.rng.gauss() * sg, z: tg.z + m.rng.gauss() * sg }; }
+        const blockers = new Set(this.blocks.map((bl) => bl.player));
+        let best = null, bd = 1e9;
+        for (const q of this.players) { if (blockers.has(q) || (q.busy && !q.busy.isBlock)) continue; const d = Math.hypot(q.x - op.read.x, q.z - op.read.z) - (q.role === ROLES.TEKONG ? 0.8 : 0); if (d < bd) { bd = d; best = q; } }
+        if (best) targets[best.index] = { x: Math.max(-3.0, Math.min(3.0, op.read.x)), z: s * Math.max(1.0, Math.min(6.6, Math.abs(op.read.z))), plan: true };
+      }
     }
     this.targets = targets;
   }

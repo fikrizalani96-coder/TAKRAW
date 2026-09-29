@@ -7,7 +7,8 @@ export class Input {
     this.state = { mx: 0, my: 0, held: { A: false, B: false, C: false, D: false }, pressed: {} };
     this.padIdx = -1; this.isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
     this.enabled = true;
-    addEventListener('keydown', (e) => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(e.key)) e.preventDefault(); this.keys.add(e.code); });
+    this.latched = new Set(); this.touchLatch = {};        // presses shorter than one frame still register
+    addEventListener('keydown', (e) => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(e.key)) e.preventDefault(); this.keys.add(e.code); this.latched.add(e.code); });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
     addEventListener('blur', () => this.keys.clear());
     this.buildTouchUI();
@@ -45,7 +46,7 @@ export class Input {
     zone.addEventListener('pointerdown', onDown); addEventListener('pointermove', onMove); addEventListener('pointerup', onUp); addEventListener('pointercancel', onUp);
     for (const b of ui.querySelectorAll('.abtn')) {
       const k = b.dataset.k;
-      b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); this.touch.buttons[k] = true; b.classList.add('down'); });
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); this.touch.buttons[k] = true; this.touchLatch[k] = true; b.classList.add('down'); });
       const up = () => { this.touch.buttons[k] = false; b.classList.remove('down'); };
       b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
     }
@@ -57,7 +58,7 @@ export class Input {
   setLabels(l) { for (const k of ['A', 'B', 'C', 'D']) { const b = this.ui.querySelector('#btn' + k + ' span'); if (b && b.textContent !== (l[k] || '')) b.textContent = l[k] || ''; this.ui.querySelector('#btn' + k).style.opacity = l[k] ? 1 : 0.35; } }
 
   poll() {
-    const k = this.keys;
+    const k = new Set([...this.keys, ...this.latched]); this.latched.clear();
     let mx = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     let my = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
     const held = { A: k.has('Space') || k.has('KeyJ'), B: k.has('KeyK'), C: k.has('KeyL'), D: k.has('KeyI') || k.has('KeyU') };
@@ -72,7 +73,7 @@ export class Input {
       if (b[12]?.pressed) my = 1; if (b[13]?.pressed) my = -1; if (b[14]?.pressed) mx = -1; if (b[15]?.pressed) mx = 1;
     }
     if (this.touch.stick) { mx = this.touch.stick.x; my = this.touch.stick.y; }
-    for (const kk of ['A', 'B', 'C', 'D']) held[kk] ||= this.touch.buttons[kk];
+    for (const kk of ['A', 'B', 'C', 'D']) { held[kk] ||= this.touch.buttons[kk] || !!this.touchLatch[kk]; this.touchLatch[kk] = false; }
     for (const kk of ['switch', 'camera', 'pause']) extras[kk] ||= this.touch.extras[kk];
     const mag = Math.hypot(mx, my); if (mag > 1) { mx /= mag; my /= mag; }
     const now = { ...held, ...extras };

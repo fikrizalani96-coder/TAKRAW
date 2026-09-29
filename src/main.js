@@ -23,6 +23,7 @@ const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 30
 const audio = new GameAudio();
 const camRig = new CameraRig(camera);
 const input = new Input(root);
+document.getElementById('hud').style.display = 'none';
 const hud = new HUD(document.getElementById('hud'));
 const app = { renderer: null, scene, camera, audio, camRig, quality: 'medium', showAids: store.get('settings', { aids: true }).aids !== false };
 let game = null, paused = false, running = false, lastCfg = null, over = false, labActive = false;
@@ -53,6 +54,10 @@ function onResize() {
   renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
 }
+// auto-pause when the tab/app is backgrounded; survive GPU context loss gracefully
+document.addEventListener('visibilitychange', () => { if (document.hidden && game && !over && !paused) { paused = true; menu.pause(pauseState()); } });
+canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); if (game && !paused) { paused = true; } });
+canvas.addEventListener('webglcontextrestored', () => { location.reload(); });
 addEventListener('resize', onResize); addEventListener('orientationchange', () => setTimeout(onResize, 200));
 
 async function startGame(cfg) {
@@ -79,7 +84,7 @@ async function startGame(cfg) {
   window.__advance = (sec, step = 1 / 30) => { const n = Math.round(sec / step); for (let i = 0; i < n; i++) { if (hc) hc.update(step); match.update(step); view.update(step); } camRig.update(0.3, match.ball, hc ? hc.active : null, camera.aspect); };
   camRig.side = 1; camRig.setMode('broadcast'); camRig.override = null; camRig.reset(); camRig.maxHeight = view.env && view.env.kampung ? 60 : 11.5;
   match.start();
-  menu.clear(); over = false; paused = false;
+  menu.clear(); over = false; paused = false; document.getElementById('hud').style.display = '';
   input.showTouch(isTouch && !!hc);
   if (!running) { running = true; requestAnimationFrame(frame); }
   const first = match.rules.serving;
@@ -90,7 +95,7 @@ function endGame() {
   const { view } = game;
   scene.traverse((o) => { if (o.isMesh || o.isLine || o.isSprite) { if (o.geometry && !o.isSkinnedMesh) o.geometry.dispose?.(); } });
   while (scene.children.length) scene.remove(scene.children[0]);
-  game = null; window.__stgc = null; input.showTouch(false);
+  game = null; window.__stgc = null; input.showTouch(false); document.getElementById('hud').style.display = 'none';
 }
 
 function hookEvents(match, cfg) {
@@ -134,9 +139,10 @@ function frame(now) {
   if (inp.pressed.aids) app.showAids = !app.showAids;
   if (inp.pressed.mute) audio.setEnabled(!audio.enabled);
   if (!paused) {
-    if (hc) { hc.setInput(inp.mx, inp.my, inp.pressed, inp.held); hc.update(dt); }
-    match.update(dt);
-    view.update(dt);
+    const sdt = dt * view.tickSlow(dt);                      // slow-motion beat on big spikes
+    if (hc) { hc.setInput(inp.mx, inp.my, inp.pressed, inp.held); hc.update(sdt); }
+    match.update(sdt);
+    view.update(sdt);
     hud.update(match, hc);
     if (hc) input.setLabels(hc.labels);
     audio.update(dt, view.excite);

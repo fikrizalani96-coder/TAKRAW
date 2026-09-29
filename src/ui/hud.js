@@ -46,7 +46,13 @@ export class HUD {
   updateContext(match, hc) {
     const p = hc.active; const c = hc.context; let txt = '';
     const role = p ? p.role.toUpperCase() : '';
-    if (c === 'serve') txt = `<b>${role}</b> · aim with stick, then pick <span class="pill">SILA float</span><span class="pill">KUDA power</span><span class="pill">CARA curve</span>`;
+    const short = matchMedia('(pointer: coarse)').matches;
+    if (c === 'serve' && short) txt = `<b>${role}</b> · stick = aim, then <b>SILA</b> · <b>KUDA</b> · <b>CARA</b>`;
+    else if (c === 'kick' && short) txt = `<b>TIMING!</b> tap again as it drops`;
+    else if (c === '2' && short) txt = `<b>${role}</b> · LIFT it — stick ↑ quick, ↓ high`;
+    else if (c === '3' && short) txt = `<b>${role}</b> · ATTACK! <b>LIBAS</b> to spike`;
+    else if (c === 'defend' && short) txt = `<b>${role}</b> · block with <b>BLOK</b> at the net`;
+    else if (c === 'serve') txt = `<b>${role}</b> · aim with stick, then pick <span class="pill">SILA float</span><span class="pill">KUDA power</span><span class="pill">CARA curve</span>`;
     else if (c === 'kick') txt = `<b>TIMING!</b> press the same button again as the ball drops`;
     else if (c === '1') txt = `<b>${role}</b> · get under the ball and RECEIVE`;
     else if (c === '2') txt = `<b>${role}</b> · LIFT it up for the killer (stick ↑ quick / ↓ high)`;

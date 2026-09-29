@@ -340,7 +340,7 @@ export class Match {
   applyIntent(p, b, q, fault) {
     const w = this.world, ball = this.ball, intent = b.intent || { kind: 'over', target: this.brains[p.team].chooseAttackTarget(false), power: 0.3 };
     const t = p.team, side = this.rules.sideOf(t), os = -side;
-    const noise = this.noise(p, q, intent.kind === 'attack' ? 1 : 0.8);
+    const noise = this.noise(p, q, intent.kind === 'attack' ? (b.plan && b.plan.human ? 1 : 2.4) : 0.8);
     const tg = intent.target || { x: 0, z: os * 3, y: 0.12 };
     const aim = b.aim;
     let vel = null, spin = [0, 0, 0];

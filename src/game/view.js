@@ -34,6 +34,7 @@ export class GameView {
     this.ballQuat = new THREE.Quaternion(); this.trail = []; this.fx = []; this.time = 0;
     this.markers = {}; this.excite = 0.15;
     this.landMark = null; this.pendingStop = [];
+    this.timeScale = 1; this.slowT = 0; this.slowTo = 1; this.slowmo = true;
   }
 
   async init(progress = () => {}) {
@@ -137,6 +138,7 @@ export class GameView {
       const spec = { skin: Math.floor(rng() * 4), hairStyle: d.hair, hairColor: Math.floor(rng() * 4), face, faceKey: 'o' + d.id, outfit: 'suit', suitColor: d.suit, trouserColor: d.trs, kit: this.teamKits[0] };
       const h = createHuman(this.offKit, head, spec);
       h.group.position.set(d.pos[0], d.y || 0, d.pos[1]); h.group.rotation.y = d.face;
+      h.group.traverse((o) => { if (o.isMesh) o.castShadow = this.quality !== 'low' || d.id === 'umpire'; });   // saves a skinned shadow pass per official on phones
       this.scene.add(h.group);
       const an = new Animator(h); an.play(d.clip, { fadeIn: 0.01, loop: true });
       this.officials.push({ def: d, human: h, anim: an, timer: 0 });
@@ -168,10 +170,18 @@ export class GameView {
     const power = Math.min(1, (e.speed || 8) / 26);
     a.hit(kind, power);
     const big = kind === 'spike' || (kind === 'serve' && power > 0.6);
+    if (kind === 'spike' && power > 0.55 && this.slowmo) { this.slowT = 0.32; this.slowTo = 0.42; }   // cinematic beat on the kill
     if (big) { this.app.camRig.addShake(0.35 * power); this.app.camRig.addKick(0.5); this.excite = Math.min(1, this.excite + 0.25); }
     const fx = this.fx.find((f) => f.t >= 1);
     if (fx && e.speed > 9) { fx.t = 0; fx.life = 0.35; fx.mesh.position.set(this.match.ball.x, this.match.ball.y, this.match.ball.z); fx.mesh.visible = true; fx.big = big; }
     if (e.player && e.player.anim) e.player.anim.setFace(0, big ? 0.55 : 0.15, 0.3);
+  }
+  /** Ease the simulation clock toward the slow-motion target (called with real dt). */
+  tickSlow(dt) {
+    const target = this.slowT > 0 ? this.slowTo : 1;
+    if (this.slowT > 0) this.slowT -= dt;
+    this.timeScale += (target - this.timeScale) * Math.min(1, dt * (target < this.timeScale ? 30 : 8));
+    return this.timeScale;
   }
   onBounce(e) { this.app.audio.bounce(e.speed); }
   onLanded(e) {

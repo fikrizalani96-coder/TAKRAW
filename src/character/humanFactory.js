@@ -14,7 +14,7 @@ import { kitMaterial } from './kitMaterial.js';
 export const QUALITY = {
   high: { body: 0.0092, head: 0.0046, hand: 0.0040, foot: 0.0050, cloth: 0.0095 },
   medium: { body: 0.0112, head: 0.0056, hand: 0.0048, foot: 0.0060, cloth: 0.0115 },
-  low: { body: 0.0140, head: 0.0068, hand: 0.0058, foot: 0.0074, cloth: 0.0145 },
+  low: { body: 0.0185, head: 0.0086, hand: 0.0072, foot: 0.0092, cloth: 0.0185 },
 };
 
 export const BUILDS = {
