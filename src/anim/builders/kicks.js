@@ -139,7 +139,7 @@ export function registerKicks() {
   const lines = { line: [0.04, 0.05], cross: [0.16, -0.02], inner: [-0.12, -0.02] };
   for (const surface of serveSurf) for (const leg of ['R', 'L']) for (const [pn, pw] of Object.entries(powers)) for (const [ln, [lx, dz]] of Object.entries(lines)) {
     const sd = sideSign(leg);
-    const T = surface === 'toe' ? [sd * 0.02, 0.32, 0.42 + dz] : [sd * (0.06 + lx * 0.5), surface === 'instep' ? 0.98 : 0.86, 0.36 + dz];
+    const T = surface === 'toe' ? [sd * 0.02, 0.32, 0.42 + dz] : [sd * (0.06 + lx * 0.5), surface === 'instep' ? 1.15 : surface === 'inside' ? 0.98 : 1.05, 0.36 + dz];
     regKick(`serve.${surface}.${leg}.${pn}.${ln}`, `Serve - ${SURF_NAME[surface]} ${LEGN[leg]} foot, ${pn}, ${ln}`, 'serve', { leg, surface, T, power: pw, tc: 0.52 - 0.1 * pw, style: 'stand', base: READY }, ['tekong', pn, ln]);
   }
   // ---- DIGS / RECEIVES: heights x lateral x surface x leg ----
