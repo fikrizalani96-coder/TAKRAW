@@ -11,7 +11,8 @@
     "test": "node tests/run.mjs",
     "test:anim": "node tests/anim-catalog.mjs",
     "test:sim": "node tests/sim.mjs",
-    "test:shots": "node tests/shots.mjs"
+    "test:shots": "node tests/shots.mjs",
+    "build:artifact": "vite build && node scripts/artifact.mjs"
   },
   "dependencies": {
     "three": "^0.180.0"

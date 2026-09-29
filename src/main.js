@@ -181,14 +181,15 @@ async function openLab() {
 }
 
 // boot
-window.addEventListener('load', () => {
+function boot() {
   const auto = params.get('auto');
   if (params.get('lab')) { openLab(); return; }
   if (auto) {
     const cfg = { env: params.get('env') || 'official', teams: [params.get('a') || 'THA', params.get('b') || 'MAS'], format: params.get('format') || 'quick', difficulty: params.get('diff') || 'pro', assist: 0.75, quality: params.get('quality') || 'low', gender: 'men', spectate: params.get('human') !== '1' };
     startGame(cfg);
   } else { menu.title(); startBackdrop(); }
-});
+}
+if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 
 /** Animated 3D athlete behind the title/menus (built in the background; the game reuses its cached meshes). */
 async function startBackdrop() {

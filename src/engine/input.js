@@ -65,7 +65,9 @@ export class Input {
     const held = { A: k.has('Space') || k.has('KeyJ'), B: k.has('KeyK'), C: k.has('KeyL'), D: k.has('KeyI') || k.has('KeyU') };
     const extras = { switch: k.has('KeyQ') || k.has('Tab'), camera: k.has('KeyV'), pause: k.has('Escape') || k.has('KeyP'), aids: k.has('KeyH'), mute: k.has('KeyM') };
     // gamepad
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    // embedded frames without the gamepad permission throw here: disable pads instead of breaking input
+    let pads = [];
+    if (this.padsOk !== false && navigator.getGamepads) { try { pads = navigator.getGamepads() || []; this.padsOk = true; } catch { this.padsOk = false; } }
     for (const p of pads) if (p && p.connected) {
       const ax = Math.abs(p.axes[0]) > 0.16 ? p.axes[0] : 0, ay = Math.abs(p.axes[1]) > 0.16 ? p.axes[1] : 0;
       if (ax || ay) { mx = ax; my = -ay; }
