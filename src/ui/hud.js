@@ -13,6 +13,7 @@ export class HUD {
       <div id="topright"><canvas id="radar" width="148" height="272"></canvas></div>
       <div id="touches"><i></i><i></i><i></i></div>
       <div id="toast"><div class="t1"></div><div class="t2"></div></div>
+      <div id="replaytag"><i></i><b>REPLAY</b><small>tap / press any button to skip</small></div>
       <div id="serveinfo"></div>
       <div id="ctx"></div>`;
     this.el = (id) => root.querySelector('#' + id);

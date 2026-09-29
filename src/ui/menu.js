@@ -74,13 +74,17 @@ export class Menu {
   }
 
   settings() {
-    const s = store.get('settings', { volume: 0.8, aids: true });
+    const s = store.get('settings', { volume: 0.8, aids: true, replays: true, slowmo: true });
+    if (s.replays === undefined) s.replays = true; if (s.slowmo === undefined) s.slowmo = true;
     const o = this.overlay(`<h1 style="font-size:32px">SETTINGS</h1>
       <div class="group"><label>Volume</label><input id="vol" type="range" min="0" max="1" step="0.05" value="${s.volume}" style="width:100%"></div>
       <div class="group"><label>Guides (rings & aim)</label><div class="chips" data-k="aids"><div class="chip ${s.aids ? 'sel' : ''}" data-v="1">On</div><div class="chip ${!s.aids ? 'sel' : ''}" data-v="0">Off</div></div></div>
+      <div class="group"><label>Instant replays</label><div class="chips" data-k="replays"><div class="chip ${s.replays ? 'sel' : ''}" data-v="1">On</div><div class="chip ${!s.replays ? 'sel' : ''}" data-v="0">Off</div></div></div>
+      <div class="group"><label>Slow-motion on big spikes</label><div class="chips" data-k="slowmo"><div class="chip ${s.slowmo ? 'sel' : ''}" data-v="1">On</div><div class="chip ${!s.slowmo ? 'sel' : ''}" data-v="0">Off</div></div></div>
       <button class="btn" data-a="back">BACK</button>`);
     o.querySelector('#vol').addEventListener('input', (e) => { s.volume = +e.target.value; store.set('settings', s); this.h.settings && this.h.settings(s); });
     o.querySelectorAll('[data-k="aids"] .chip').forEach((el) => el.addEventListener('click', () => { s.aids = el.dataset.v === '1'; store.set('settings', s); this.h.settings && this.h.settings(s); this.settings(); }));
+    for (const k of ['replays', 'slowmo']) o.querySelectorAll(`[data-k="${k}"] .chip`).forEach((el) => el.addEventListener('click', () => { s[k] = el.dataset.v === '1'; store.set('settings', s); this.h.settings && this.h.settings(s); this.settings(); }));
     this.bind(o, '[data-a]', () => this.title());
   }
 

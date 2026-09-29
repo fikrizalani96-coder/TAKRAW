@@ -12,6 +12,7 @@ import { buildKampung } from '../world/kampung.js';
 import { makeRng } from '../util/math.js';
 import { COURT, ROLES } from './config.js';
 import { fwdX, fwdZ, leftX, leftZ } from './player.js';
+import { Replay } from './replay.js';
 
 const WIN = ['cel.fistpump.R.strong', 'cel.fistpump.L.wild', 'cel.arms.up.v', 'cel.arms.up.wild', 'cel.jump.fist.R', 'cel.jump.fist.L', 'cel.jump.bump.R', 'cel.chest.thump.R', 'cel.flex.both', 'cel.point.sky.R', 'cel.clap.overhead', 'cel.fistpump.R.wild', 'cel.dance.2', 'cel.highfive.up.R'];
 const BIG_WIN = ['cel.flip.back', 'cel.kneeslide.fwd', 'cel.cartwheel', 'cel.arms.up.kneel', 'cel.flip.front', 'cel.jump.fist.R'];
@@ -114,6 +115,8 @@ export class GameView {
     match.on('state', (e) => this.onState(e));
     match.on('landed', (e) => this.onLanded(e));
     match.on('serve-start', () => {});
+    match.on('kick-start', () => { this.rallyStartT = this.time; });
+    this.replay = new Replay(this); this.replayPending = null; this.lastTouch = null; this.lastSpikeT = -99; this.rallyStartT = 0;
     match.on('whiff', (e) => { if (e.player.anim) e.player.anim.setFace(-0.2, 0.3, 0.4); });
   }
 
@@ -166,10 +169,12 @@ export class GameView {
 
   // ---------------- events ----------------
   onTouch(e) {
+    this.lastTouch = { t: this.time, skill: e.skill || '', block: !!e.block, team: e.team };
     const a = this.app.audio, kind = e.skill && e.skill.startsWith('spike') ? 'spike' : e.serve ? 'serve' : /head/.test(e.skill || '') ? 'head' : /chest|shoulder|back/.test(e.skill || '') ? 'chest' : /thigh|knee/.test(e.skill || '') ? 'body' : e.block ? 'body' : 'foot';
     const power = Math.min(1, (e.speed || 8) / 26);
     a.hit(kind, power);
     const big = kind === 'spike' || (kind === 'serve' && power > 0.6);
+    if (kind === 'spike') this.lastSpikeT = this.time;
     if (kind === 'spike' && power > 0.55 && this.slowmo) { this.slowT = 0.32; this.slowTo = 0.42; }   // cinematic beat on the kill
     if (big) { this.app.camRig.addShake(0.35 * power); this.app.camRig.addKick(0.5); this.excite = Math.min(1, this.excite + 0.25); }
     const fx = this.fx.find((f) => f.t >= 1);
@@ -213,6 +218,12 @@ export class GameView {
     a.whistle(false); a.cheer(e.winner === m.humanTeam || m.humanTeam < 0 ? 1 : 0.55);
     this.excite = 1;
     this.app.camRig.addShake(0.2);
+    // broadcast-style replay of the finish (skippable); only for decisive-looking rallies, spaced out
+    const lt = this.lastTouch, decisive = lt && (lt.skill.startsWith('spike') || lt.block || e.rally >= 6 || /Ace/i.test(e.reason));
+    if (this.replayOn !== false && this.replay && decisive && !e.out.setOver && e.rally >= 3 && this.time - this.replay.lastEndTime > 18 && this.rng() < (m.humanTeam >= 0 ? 0.5 : 0.8)) {
+      const land = this.time;
+      this.replayPending = { t: this.time + 1.5, from: Math.max(this.rallyStartT - 0.4, land - 3.6), slow: this.lastSpikeT > this.rallyStartT ? this.lastSpikeT : (lt ? lt.t : land - 1) };
+    }
     const bigWin = e.rally >= 6 || /Ace/i.test(e.reason) || e.out.setOver;
     for (const p of m.all) {
       if (p.busy) { /* finish skill first */ }
@@ -271,6 +282,18 @@ export class GameView {
     this.excite += (0.18 - this.excite) * Math.min(1, dt * 0.4);
     this.env.anim && this.env.anim.update(dt, this.excite);
     this.updateMarkers(dt);
+    this.replay && this.replay.record(dt);
+    const rp = this.replayPending;
+    if (rp && this.time >= rp.t) {
+      this.replayPending = null;
+      if (m.state === 'point') this.replay.start(rp.from, rp.slow);
+    }
+  }
+
+  setReplayUI(on) {
+    const el = document.getElementById('replaytag'); if (el) el.style.display = on ? 'flex' : 'none';
+    // the referee and umpire would block the replay camera
+    for (const o of this.officials) if (o.def.id === 'referee' || o.def.id === 'umpire') o.human.group.visible = !on;
   }
 
   updateMarkers(dt) {

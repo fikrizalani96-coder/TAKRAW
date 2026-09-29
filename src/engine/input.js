@@ -10,6 +10,7 @@ export class Input {
     this.latched = new Set(); this.touchLatch = {};        // presses shorter than one frame still register
     addEventListener('keydown', (e) => { if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(e.key)) e.preventDefault(); this.keys.add(e.code); this.latched.add(e.code); });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
+    this.tapLatch = false; addEventListener('pointerdown', () => { this.tapLatch = true; });
     addEventListener('blur', () => this.keys.clear());
     this.buildTouchUI();
   }
@@ -80,7 +81,7 @@ export class Input {
     const pressed = {};
     for (const kk of Object.keys(this.prev)) pressed[kk] = !!now[kk] && !this.prev[kk];
     this.prev = { A: !!now.A, B: !!now.B, C: !!now.C, D: !!now.D, switch: !!now.switch, camera: !!now.camera, pause: !!now.pause, aids: !!now.aids, mute: !!now.mute };
-    this.state = { mx, my, held, pressed };
+    this.state = { mx, my, held, pressed, tap: this.tapLatch }; this.tapLatch = false;
     return this.state;
   }
 }

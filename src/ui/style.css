@@ -98,3 +98,7 @@ table.res { width:100%; border-collapse:collapse; margin:14px 0; } table.res td,
   .lab-list { grid-template-columns:1fr; }
 }
 @media (pointer: coarse) { #ctx { left:10px; transform:none; max-width:54vw; white-space:normal; border-radius:14px; font-size:12px; line-height:1.25; bottom:max(16px, env(safe-area-inset-bottom)); } }
+
+#replaytag { position:absolute; right:max(12px, env(safe-area-inset-right)); bottom:max(70px, calc(env(safe-area-inset-bottom) + 56px)); display:none; align-items:center; gap:8px; background:rgba(230,59,87,.92); padding:6px 14px; border-radius:999px; font-size:15px; letter-spacing:.14em; box-shadow:0 4px 18px rgba(0,0,0,.45); }
+#replaytag i { width:10px; height:10px; border-radius:50%; background:#fff; animation:rp 1s infinite; } #replaytag small { font-size:10px; letter-spacing:.06em; opacity:.85; }
+@keyframes rp { 50% { opacity:.25; } }

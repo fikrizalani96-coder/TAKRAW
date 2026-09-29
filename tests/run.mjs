@@ -17,6 +17,10 @@ if (browser) {
   suites.push(['app boots + plays (official)', ['tests/play.mjs', 'auto=1&quality=low', 'tests/out/run_off', '540', '960', '8', '8']]);
   suites.push(['app boots + plays (kampung)', ['tests/play.mjs', 'auto=1&env=kampung&quality=low', 'tests/out/run_kmp', '540', '960', '8', '8']]);
   suites.push(['human control path', ['tests/human.mjs', 'bot', '60']]);
+  suites.push(['instant replay', ['tests/replay.mjs', '1280', '720', 'official']]);
+  suites.push(['menus walk-through', ['tests/menus.mjs', '390', '844', 'tests/out/run_menu']]);
+  suites.push(['results + rematch', ['tests/results.mjs', '1280', '720', 'tests/out/run_results.png']]);
+  suites.push(['animation lab', ['tests/lab.mjs', '1280', '720', 'gulung', 'tests/out/run_lab.png']]);
 }
 let failed = 0;
 for (const [name, args] of suites) {

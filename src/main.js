@@ -31,7 +31,7 @@ const menu = new Menu(document.getElementById('menus'), {
   click: () => { audio.init(); audio.resume(); audio.click(); },
   start: (cfg) => startGame(cfg),
   lab: () => openLab(),
-  settings: (s) => { audio.setVolume(s.volume); app.showAids = s.aids; },
+  settings: (s) => { audio.setVolume(s.volume); app.showAids = s.aids; if (game) { game.view.replayOn = s.replays !== false; game.view.slowmo = s.slowmo !== false; } },
   pauseAction: (a) => pauseAction(a),
   resultAction: (a) => { if (a === 'again') startGame(lastCfg); else { endGame(); menu.title(); } },
 });
@@ -75,13 +75,14 @@ async function startGame(cfg) {
   const humanTeam = cfg.spectate ? -1 : 0;
   const match = new Match({ format: cfg.format, surface: cfg.env, gender: cfg.gender, teams: cfg.teams.map((c) => ({ code: c, name: TEAMS[c].name, fame: TEAMS[c].fame })), humanTeam, difficulty: cfg.difficulty, assist: cfg.assist ?? 0.75, seed, firstServer: Math.random() < 0.5 ? 0 : 1 });
   view.bindMatch(match);
+  { const st = store.get('settings', {}); view.replayOn = st.replays !== false; view.slowmo = st.slowmo !== false; }
   const hc = humanTeam >= 0 ? new HumanCtl(match, humanTeam) : null;
   hud.setTeams(cfg.teams);
   hookEvents(match, cfg);
   game = { view, match, hc, cfg };
   window.__stgc = game; window.__camRig = camRig; window.__camera = camera;
   // test hook: advance the simulation deterministically without rendering
-  window.__advance = (sec, step = 1 / 30) => { const n = Math.round(sec / step); for (let i = 0; i < n; i++) { if (hc) hc.update(step); match.update(step); view.update(step); } camRig.update(0.3, match.ball, hc ? hc.active : null, camera.aspect); };
+  window.__advance = (sec, step = 1 / 30) => { const n = Math.round(sec / step); for (let i = 0; i < n; i++) { if (view.replay && view.replay.active) { view.replay.update(step); continue; } if (hc) hc.update(step); match.update(step); view.update(step); } camRig.update(0.3, match.ball, hc ? hc.active : null, camera.aspect); };
   camRig.side = 1; camRig.setMode('broadcast'); camRig.override = null; camRig.reset(); camRig.maxHeight = view.env && view.env.kampung ? 60 : 11.5;
   match.start();
   menu.clear(); over = false; paused = false; document.getElementById('hud').style.display = '';
@@ -139,6 +140,11 @@ function frame(now) {
   if (inp.pressed.aids) app.showAids = !app.showAids;
   if (inp.pressed.mute) audio.setEnabled(!audio.enabled);
   if (!paused) {
+    const rp = view.replay;
+    if (rp && rp.active) {                                   // instant replay: match paused, tap/any button skips
+      if (inp.pressed.A || inp.pressed.B || inp.pressed.C || inp.pressed.D || inp.pressed.switch || inp.tap) rp.stop(); else rp.update(dt);
+      camRig.update(dt, match.ball, null, camera.aspect); renderer.render(scene, camera); return;
+    }
     const sdt = dt * view.tickSlow(dt);                      // slow-motion beat on big spikes
     if (hc) { hc.setInput(inp.mx, inp.my, inp.pressed, inp.held); hc.update(sdt); }
     match.update(sdt);

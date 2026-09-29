@@ -22,6 +22,7 @@ npm test           # headless unit + soak suites  (npm test -- --browser  adds t
 | **Animation** | **1,167 clips** in 15 families (serve 84, receive 219, set 72, spike/libas 228, block 45, movement 182, idle 46, dive/slide 75, toss 24, ball skills 14, celebrate 48, react 26, warm-up 28, officials 40, freestyle 36) on a **109-joint** rig. See the *Animation Lab* on the title screen to browse, search, mirror, slow down and scrub every one. |
 | **Humans** | Real proportions (tekong / tosser / killer / official / elder / youth builds), sculpted from signed-distance fields, skinned to the 109-joint rig (spine ×5, neck, jaw, eyes, lids, brows, cheeks, lips, clavicle/scapula, twist bones, 19-bone hands, foot/ball/toes), dressed with per-team kits (sash, stripes, chevron… drawn per-pixel in a shader), numbers and names. |
 | **Human control** | You always control the player who must touch the ball next (or press *switch*). Movement has arrival assist so contact windows are forgiving; assist level is selectable (Full / Balanced / Manual). |
+| **Broadcast touches** | Slow-motion beat on hard spikes and **instant replays** of decisive rallies from a reverse-angle camera (skippable, both toggleable in Settings). |
 | **Camera / HUD / audio** | Broadcast camera that re-fits the whole court to any aspect ratio (portrait phone → ultrawide), scoreboard with flags, ball-touch pips, radar, toasts, synthesised crowd/whistle/ball/net audio. |
 
 ### Controls
@@ -77,5 +78,5 @@ both venues and drives the human-control path with a scripted player (serve pres
 ## Known limitations / ideas
 
 * Faces and hair are stylised, not photoreal; crowd members are simple instanced figures.
-* No instant-replay yet; the AI never commits net or four-touch faults.
+* The AI makes out-of-bounds/net errors but never commits net-touch or four-touch faults; replays skip the net's cloth motion.
 * Real-device performance depends on GPU: `low` quality (auto on touch devices) reduces mesh density, shadows and crowd size.
