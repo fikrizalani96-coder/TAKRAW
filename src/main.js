@@ -26,6 +26,7 @@ const input = new Input(root);
 document.getElementById('hud').style.display = 'none';
 const hud = new HUD(document.getElementById('hud'));
 const app = { renderer: null, scene, camera, audio, camRig, quality: 'medium', showAids: store.get('settings', { aids: true }).aids !== false };
+let backdrop = null;
 let game = null, paused = false, running = false, lastCfg = null, over = false, labActive = false;
 const menu = new Menu(document.getElementById('menus'), {
   click: () => { audio.init(); audio.resume(); audio.click(); },
@@ -133,7 +134,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (labActive) return;
   const inp = input.poll();
-  if (!game) { if (renderer) renderer.render(scene, camera); return; }
+  if (!game) { if (backdrop && backdrop.ready && !labActive) backdrop.update(dt); else if (renderer && !labActive) renderer.render(scene, camera); return; }
   const { match, view, hc } = game;
   if (inp.pressed.pause && !over) { paused = !paused; if (paused) menu.pause(pauseState()); else menu.clear(); }
   if (inp.pressed.camera) { hud.toast(camRig.cycle().toUpperCase() + ' CAMERA', '', '', 900); }
@@ -176,5 +177,19 @@ window.addEventListener('load', () => {
   if (auto) {
     const cfg = { env: params.get('env') || 'official', teams: [params.get('a') || 'THA', params.get('b') || 'MAS'], format: params.get('format') || 'quick', difficulty: params.get('diff') || 'pro', assist: 0.75, quality: params.get('quality') || 'low', gender: 'men', spectate: params.get('human') !== '1' };
     startGame(cfg);
-  } else menu.title();
+  } else { menu.title(); startBackdrop(); }
 });
+
+/** Animated 3D athlete behind the title/menus (built in the background; the game reuses its cached meshes). */
+async function startBackdrop() {
+  try {
+    if (params.get('nobg')) return;
+    const q = pickQuality('auto');
+    app.quality = q; ensureRenderer(q); onResize();
+    const { TitleBackdrop } = await import('./ui/titlebg.js');
+    const bd = new TitleBackdrop(renderer, q === 'high' ? 'medium' : q);
+    if (!running) { running = true; requestAnimationFrame(frame); }
+    await bd.init();
+    backdrop = bd;
+  } catch (e) { console.warn('title backdrop unavailable', e); }
+}

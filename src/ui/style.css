@@ -102,3 +102,10 @@ table.res { width:100%; border-collapse:collapse; margin:14px 0; } table.res td,
 #replaytag { position:absolute; right:max(12px, env(safe-area-inset-right)); bottom:max(70px, calc(env(safe-area-inset-bottom) + 56px)); display:none; align-items:center; gap:8px; background:rgba(230,59,87,.92); padding:6px 14px; border-radius:999px; font-size:15px; letter-spacing:.14em; box-shadow:0 4px 18px rgba(0,0,0,.45); }
 #replaytag i { width:10px; height:10px; border-radius:50%; background:#fff; animation:rp 1s infinite; } #replaytag small { font-size:10px; letter-spacing:.06em; opacity:.85; }
 @keyframes rp { 50% { opacity:.25; } }
+
+.overlay.title { background:radial-gradient(ellipse at 40% 40%, rgba(10,16,48,.5), rgba(4,6,18,.84)); }
+@media (min-aspect-ratio: 23/20) and (min-width: 760px) {
+  .overlay.title { background:linear-gradient(90deg, rgba(4,6,18,.92) 0%, rgba(6,10,30,.72) 42%, rgba(4,6,18,.05) 78%); justify-content:flex-start; }
+  .overlay.title .menu { width:min(46vw, 540px); margin-left:max(4vw, 24px); text-align:left; }
+  .overlay.title .menu h1 { font-size:clamp(34px,5vw,62px); }
+}

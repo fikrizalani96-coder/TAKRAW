@@ -14,7 +14,7 @@ export class Menu {
     this.layer = document.createElement('div'); root.appendChild(this.layer);
   }
   clear() { this.layer.innerHTML = ''; }
-  overlay(html) { this.clear(); const o = document.createElement('div'); o.className = 'overlay'; o.innerHTML = `<div class="menu">${html}</div>`; this.layer.appendChild(o); return o; }
+  overlay(html, cls = '') { this.clear(); const o = document.createElement('div'); o.className = 'overlay ' + cls; o.innerHTML = `<div class="menu">${html}</div>`; this.layer.appendChild(o); return o; }
   bind(o, sel, fn) { o.querySelectorAll(sel).forEach((e) => e.addEventListener('click', (ev) => { this.h.click && this.h.click(); fn(e, ev); })); }
 
   title() {
@@ -25,7 +25,7 @@ export class Menu {
       <button class="btn" data-a="kampung">KAMPUNG TAKRAW (village)</button>
       <div class="row2"><button class="btn ghost" data-a="watch">WATCH AI MATCH</button><button class="btn ghost" data-a="lab">ANIMATION LAB</button></div>
       <div class="row2"><button class="btn ghost" data-a="help">HOW TO PLAY</button><button class="btn ghost" data-a="settings">SETTINGS</button></div>
-      <p class="sub" style="margin-top:18px;font-size:12px">${countJoints()} joints per player · ${clipCount()} animations · ISTAF 21-point sets, deuce, 3-serve rotation</p>`);
+      <p class="sub" style="margin-top:18px;font-size:12px">${countJoints()} joints per player · ${clipCount()} animations · ISTAF 21-point sets, deuce, 3-serve rotation</p>`, 'title');
     this.bind(o, '[data-a]', (e) => {
       const a = e.dataset.a;
       if (a === 'play') { this.cfg.env = 'official'; this.setup(); }
