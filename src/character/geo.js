@@ -2,11 +2,26 @@
 import * as THREE from 'three';
 import { meshScene, bakeAO, computeSkin } from './mesher.js';
 
+/** Laplacian smoothing of a per-vertex scalar over the mesh edges (kills speckle in baked AO). */
+function smoothOverMesh(vals, idx, n, iters) {
+  if (!iters) return;
+  const sum = new Float32Array(n), cnt = new Uint16Array(n);
+  for (let it = 0; it < iters; it++) {
+    sum.fill(0); cnt.fill(0);
+    for (let t = 0; t < idx.length; t += 3) {
+      const a = idx[t], b = idx[t + 1], c = idx[t + 2];
+      sum[a] += vals[b] + vals[c]; cnt[a] += 2; sum[b] += vals[a] + vals[c]; cnt[b] += 2; sum[c] += vals[a] + vals[b]; cnt[c] += 2;
+    }
+    for (let i = 0; i < n; i++) if (cnt[i]) vals[i] = vals[i] * 0.5 + 0.5 * sum[i] / cnt[i];
+  }
+}
+
 export function buildSkinnedGeometry(sc, bounds, h, bind, rig, opts = {}) {
   const mesh = meshScene(sc, bounds, h, { clip: opts.clip, wide: opts.wide });
   const { skinIndex, skinWeight } = computeSkin(mesh, bind.segs, rig.index, opts.kw ?? 0.014, opts.exponent ?? 2.0);
   const n = mesh.nV;
   const ao = opts.ao === false ? null : bakeAO(sc, mesh, opts.aoStrength ?? 1.0, opts.aoRadius ?? 0.03);
+  if (ao) smoothOverMesh(ao, mesh.indices, n, opts.aoSmooth ?? 2);
   const aoAttr = new Float32Array(n);
   for (let i = 0; i < n; i++) aoAttr[i] = ao ? 0.35 + 0.65 * ao[i] : 1;
   // Dominant primitive tag per vertex (used for tint: lips, brows, ears ...)

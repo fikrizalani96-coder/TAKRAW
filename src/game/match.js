@@ -554,8 +554,11 @@ export class Match {
     for (const br of this.brains) {
       const plan = br.plan;
       if (plan && !plan.started && !plan.player.busy) {
-        if (plan.player.human) { if (this.humanCtl) this.humanCtl.consider(plan); }
-        else if (this.time >= plan.tStart - 0.003) this.startSkill(plan.player, plan);
+        const isH = plan.player.human && this.humanCtl;
+        // AI plans start on time; human plans start when armed by a button press or, with assist, at the last moment
+        if (this.time >= plan.tStart - 0.003 && (!isH || plan.armed || this.assist > 0.3)) {
+          this.startSkill(plan.player, plan, { aim: plan.aim, quality: isH && !plan.armed ? 0.93 : 1 });
+        }
       }
       // blockers
       for (const bl of br.blocks) {
@@ -564,10 +567,10 @@ export class Match {
         const pick = pickClip(skill, { y: 2.05, x: 0 }, { side: 'R' });
         if (!pick) continue;
         const tStart = bl.tContact + 0.09 - pick.tc;
-        if (this.time >= tStart - 0.02 && bl.tContact > this.time - 0.1 && !bl.player.human) {
+        if (this.time >= tStart - 0.02 && bl.tContact > this.time - 0.1 && (!bl.player.human || bl.armed || this.assist > 0.3)) {
           const plan = { player: bl.player, pick, T: pick.T, skillKey: skill, t: this.time + pick.tc, tStart: this.time, heading: bl.player.side > 0 ? Math.PI : 0, intent: { kind: 'block' }, stand: { x: bl.x, z: bl.player.z } };
           bl.started = true;
-          this.startSkill(bl.player, plan, { tContact: this.time + pick.tc });
+          this.startSkill(bl.player, plan, { tContact: this.time + pick.tc, quality: bl.player.human && !bl.armed ? 0.85 : 1 });
         }
       }
     }

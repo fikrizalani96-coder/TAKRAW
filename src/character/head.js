@@ -40,8 +40,8 @@ export function buildHeadScene(rig, bind, face = {}) {
   cone([0, 0.066, 0.086], [0, 0.030 * f.noseL, 0.108 + 0.004 * (f.noseL - 1)], 0.0085 * f.noseW * f.noseB, 0.0105 * f.noseW, { k: 0.012, skin: HS, tag: 'nose' });
   ell([0, 0.027 * f.noseL, 0.113 + 0.005 * (f.noseL - 1)], [0.0115 * f.noseW, 0.0105, 0.0115], { k: 0.010, skin: HS, tag: 'nose' });
   // mouth
-  ell([0, -0.004, 0.096], [0.023 * f.lip, 0.0075 * f.lip, 0.0125], { k: 0.008, skin: HS, tag: 'lip' });
-  ell([0, -0.021, 0.093], [0.021 * f.lip, 0.0085 * f.lip, 0.0125], { k: 0.008, skin: ['jaw', 'head'], tag: 'lip' });
+  ell([0, -0.004, 0.091], [0.023 * f.lip, 0.0075 * f.lip, 0.0120], { k: 0.008, skin: HS, tag: 'lip' });
+  ell([0, -0.021, 0.088], [0.021 * f.lip, 0.0085 * f.lip, 0.0120], { k: 0.008, skin: ['jaw', 'head'], tag: 'lip' });
   // philtrum/chin cleft area softening & throat
   ell([0, -0.080, 0.036], [0.011, 0.016, 0.013], { k: 0.02, skin: HS, tag: 'skin' });
   // neck (overlaps the body's neck; slightly larger to avoid coincident surfaces)
@@ -65,7 +65,7 @@ export function buildHairScene(rig, bind, style = 'short') {
   // Hairline: positive where there is NO hair (below the line). Higher at the forehead centre,
   // lower over the ears and nape.
   const hairline = (lx, ly, lz) => {
-    const yFront = 0.105 - 0.45 * Math.abs(lx);
+    const yFront = 0.136 - 0.52 * Math.abs(lx);
     const ySide = Math.max(0.012, 0.078 - (0.03 - lz) * 0.55);
     const t = Math.min(1, Math.max(0, lz / 0.05)); const ts = t * t * (3 - 2 * t);
     return (ySide * (1 - ts) + yFront * ts) - ly;

@@ -20,7 +20,7 @@ const dl = new THREE.DirectionalLight(0xffffff, 2.4); dl.position.set(2, 4, 4); 
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: 0xc8506a, roughness: 0.7 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
 const grid = new THREE.GridHelper(40, 80, 0xffffff, 0x884455); grid.position.y = 0.002; scene.add(grid);
 const team = TEAMS[q.get('team') || 'THA'];
-const kitB = await getBodyKit(q.get('build') || 'killer', q.get('quality') || 'low');
+const kitB = await getBodyKit(q.get('build') || 'killer', q.get('quality') || 'low'); await (await import('../src/character/humanFactory.js')).ensureOutfit(kitB, 'sport');
 const rng = makeRng(3);
 const face = randomFace(rng);
 const headGeo = await getHeadGeo(kitB, 'f1', face);

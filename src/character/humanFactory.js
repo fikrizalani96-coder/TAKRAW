@@ -33,24 +33,8 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 const HEAD_ORIGIN = [0, 1.595, 0.01];
 function skinTint(tag, x, y, z, nx, ny, nz, K = 1) {
   const lx = x - HEAD_ORIGIN[0], ly = (y - HEAD_ORIGIN[1] * K) / K, lz = z - HEAD_ORIGIN[2];
-  if (ly > -0.06 && ly < 0.14 && lz > 0.06) {
-    // eyebrows: thin arcs above the eyes
-    const ax = Math.abs(lx);
-    if (ax > 0.010 && ax < 0.054) {
-      const yb = 0.087 + (ax - 0.010) * 0.10 - (ax > 0.040 ? (ax - 0.040) * 1.8 : 0);
-      const d = Math.abs(ly - yb);
-      if (d < 0.0042) { const t = 1 - d / 0.0042; return [1 - 0.72 * t, 1 - 0.75 * t, 1 - 0.74 * t]; }
-    }
-    // lips
-    const lipC = -0.0125;
-    if (ax < 0.024 && lz > 0.085) {
-      const upper = ly > lipC && ly < lipC + 0.0095, lower = ly <= lipC && ly > lipC - 0.0115;
-      const edge = Math.abs(ly - lipC);
-      if (edge < 0.0012) return [0.55, 0.32, 0.30];
-      if ((upper || lower) && ax < 0.021 - Math.abs(ly - lipC) * 0.5) return [1.0, 0.74, 0.70];
-    }
-  }
   switch (tag) {
+    case 'brow': return [0.86, 0.80, 0.78];
     case 'ear': return [1.03, 0.87, 0.83];
     case 'nose': return [1.02, 0.93, 0.91];
     case 'cheek': return [1.02, 0.94, 0.92];
@@ -58,7 +42,10 @@ function skinTint(tag, x, y, z, nx, ny, nz, K = 1) {
   }
 }
 
-/** Build (or fetch) the shared geometry for a body build at a quality level. */
+/**
+ * Build (or fetch) the shared base geometry (body + hands) for a body build. Garments are built lazily per
+ * outfit with `ensureOutfit`, so a match only pays for what it actually renders.
+ */
 export async function getBodyKit(buildName = 'tekong', quality = 'high', onProgress = null) {
   const key = `${buildName}|${quality}`;
   if (kitCache.has(key)) return kitCache.get(key);
@@ -68,7 +55,6 @@ export async function getBodyKit(buildName = 'tekong', quality = 'high', onProgr
     const dims = makeDims({ height: B.height, torso: B.torso, leg: B.leg, arm: B.arm });
     const rig = buildRig(dims);
     const bind = computeBind(rig);
-    const K = dims.scale;
     const step = async (label, fn) => { const r = fn(); if (onProgress) onProgress(label); await tick(); return r; };
     const body = buildBodyScene(rig, bind, B);
     const yCut = new THREE.Vector3().setFromMatrixPosition(rig.bones.foot_l.matrixWorld).y - 0.003;
@@ -76,47 +62,57 @@ export async function getBodyKit(buildName = 'tekong', quality = 'high', onProgr
     geo.body = await step('body', () => buildSkinnedGeometry(body, body.bounds(), q.body, bind, rig, { clip: (x, y) => yCut - y }));
     geo.handL = await step('hand', () => { const s = buildHandScene(rig, bind, '_l', body); return buildSkinnedGeometry(s, s.bounds(), q.hand, bind, rig, { kw: 0.006, wide: 0.05 }); });
     geo.handR = await step('hand', () => { const s = buildHandScene(rig, bind, '_r', body); return buildSkinnedGeometry(s, s.bounds(), q.hand, bind, rig, { kw: 0.006, wide: 0.05 }); });
-    geo.footL = await step('foot', () => { const s = buildFootScene(rig, bind, '_l'); return buildSkinnedGeometry(s, s.bounds(), q.foot, bind, rig, { kw: 0.008, wide: 0.05 }); });
-    geo.footR = await step('foot', () => { const s = buildFootScene(rig, bind, '_r'); return buildSkinnedGeometry(s, s.bounds(), q.foot, bind, rig, { kw: 0.008, wide: 0.05 }); });
-    // garments
-    const garments = {};
-    const mk = async (label, scene, extra = {}) => {
-      const g = await step(label, () => buildSkinnedGeometry(scene, scene.bounds(), q.cloth, bind, rig, { kw: 0.016, ...extra }));
-      return g;
-    };
-    garments.jersey = { cs: jerseyScene(rig, bind, body), };
-    garments.jersey.geo = await mk('jersey', garments.jersey.cs);
-    garments.tee = { cs: jerseyScene(rig, bind, body, { sleeve: 0.5, loose: 1.5, waistLoose: 0.020, hem: rig.bones.pelvis.matrixWorld.elements[13] - 0.075 * K }) };
-    garments.tee.geo = await mk('tee', garments.tee.cs);
-    garments.jacket = { cs: jerseyScene(rig, bind, body, { sleeve: 1.6, loose: 1.9, waistLoose: 0.018, hem: rig.bones.pelvis.matrixWorld.elements[13] - 0.15 * K }) };
-    garments.jacket.geo = await mk('jacket', garments.jacket.cs);
-    garments.shorts = { cs: shortsScene(rig, bind, body) };
-    garments.shorts.geo = await mk('shorts', garments.shorts.cs);
-    garments.kshorts = { cs: shortsScene(rig, bind, body, { hem: 0.44 * K * dims.leg, baggy: 1.2 }) };
-    garments.kshorts.geo = await mk('kshorts', garments.kshorts.cs);
-    garments.trousers = { cs: shortsScene(rig, bind, body, { hem: 0.10 * K, baggy: 0.55 }) };
-    garments.trousers.geo = await mk('trousers', garments.trousers.cs);
-    garments.socks = { cs: socksScene(rig, bind, body), top: 0.28 * K * dims.leg };
-    garments.socks.geo = await mk('socks', garments.socks.cs, { kw: 0.01 });
-    garments.knee = { cs: bandScene(rig, bind, body, 'knee') };
-    garments.knee.geo = await mk('knee', garments.knee.cs, { kw: 0.01 });
-    garments.wrist = { cs: bandScene(rig, bind, body, 'wrist') };
-    garments.wrist.geo = await mk('wrist', garments.wrist.cs, { kw: 0.008 });
-    const shoeL = shoeScene(rig, bind, '_l'), shoeR = shoeScene(rig, bind, '_r');
-    garments.shoeL = { geo: await step('shoe', () => buildSkinnedGeometry(shoeL, shoeL.bounds(), q.foot, bind, rig, { kw: 0.01, wide: 0.05 })) };
-    garments.shoeR = { geo: await step('shoe', () => buildSkinnedGeometry(shoeR, shoeR.bounds(), q.foot, bind, rig, { kw: 0.01, wide: 0.05 })) };
-    // decals on the sport jersey and shorts (uv into a shared atlas)
-    const yb = (y) => y * K;
-    const back = extractDecal(garments.jersey.geo, { min: { x: -0.16 * K, y: yb(1.10), z: -1 }, max: { x: 0.16 * K, y: yb(1.43), z: 0.0 } }, (nx, ny, nz) => nz < -0.3,
-      (x, y) => [0.5 * (0.5 - x / (0.32 * K)), (y - yb(1.10)) / (yb(1.43) - yb(1.10))]);
-    const front = extractDecal(garments.jersey.geo, { min: { x: -0.07 * K, y: yb(1.22), z: 0 }, max: { x: 0.07 * K, y: yb(1.36), z: 1 } }, (nx, ny, nz) => nz > 0.3,
-      (x, y) => [0.5 + 0.25 * (0.5 + x / (0.14 * K)), 1 - (100 + (1 - (y - yb(1.22)) / (yb(1.36) - yb(1.22))) * 200) / 512]);
-    const shortsD = extractDecal(garments.shorts.geo, { min: { x: 0.04 * K, y: yb(0.70), z: 0 }, max: { x: 0.17 * K, y: yb(0.86), z: 1 } }, (nx, ny, nz) => nz > 0.25,
-      (x, y) => [0.75 + 0.25 * ((x - 0.04 * K) / (0.13 * K)), 1 - (28 + (1 - (y - yb(0.70)) / (yb(0.86) - yb(0.70))) * 200) / 512]);
-    return { key, dims, buildName, B, geo, garments, decals: { back, front, shorts: shortsD }, quality };
+    return { key, dims, buildName, B, geo, garments: {}, decals: {}, quality, _ctx: { rig, bind, body, q, step }, _done: new Set() };
   })();
   kitCache.set(key, p);
   return p;
+}
+
+/** Build the garment meshes an outfit needs: 'sport' | 'suit' | 'kampung' (kampung also builds bare feet). */
+export async function ensureOutfit(kit, outfit = 'sport', barefoot = false) {
+  const { rig, bind, body, q, step } = kit._ctx;
+  const K = kit.dims.scale, dims = kit.dims, G = kit.garments;
+  const mk = async (name, scene, extra = {}) => { if (G[name]) return; G[name] = { cs: scene, top: scene.top }; G[name].geo = await step(name, () => buildSkinnedGeometry(scene, scene.bounds(), q.cloth, bind, rig, { kw: 0.016, ...extra })); };
+  const pelY = rig.bones.pelvis.matrixWorld.elements[13];
+  const shoes = async () => {
+    if (G.shoeL) return;
+    const sL = shoeScene(rig, bind, '_l'), sR = shoeScene(rig, bind, '_r');
+    G.shoeL = { geo: await step('shoe', () => buildSkinnedGeometry(sL, sL.bounds(), q.foot, bind, rig, { kw: 0.01, wide: 0.05 })) };
+    G.shoeR = { geo: await step('shoe', () => buildSkinnedGeometry(sR, sR.bounds(), q.foot, bind, rig, { kw: 0.01, wide: 0.05 })) };
+  };
+  if (barefoot || outfit === 'kampung') {
+    if (!kit.geo.footL) {
+      kit.geo.footL = await step('foot', () => { const s = buildFootScene(rig, bind, '_l'); return buildSkinnedGeometry(s, s.bounds(), q.foot, bind, rig, { kw: 0.008, wide: 0.05 }); });
+      kit.geo.footR = await step('foot', () => { const s = buildFootScene(rig, bind, '_r'); return buildSkinnedGeometry(s, s.bounds(), q.foot, bind, rig, { kw: 0.008, wide: 0.05 }); });
+    }
+  }
+  if (outfit === 'sport') {
+    await mk('jersey', jerseyScene(rig, bind, body));
+    await mk('shorts', shortsScene(rig, bind, body));
+    const socks = socksScene(rig, bind, body); socks.top = 0.28 * K * dims.leg; await mk('socks', socks, { kw: 0.01 });
+    await mk('knee', bandScene(rig, bind, body, 'knee'), { kw: 0.01 });
+    await mk('wrist', bandScene(rig, bind, body, 'wrist'), { kw: 0.008 });
+    if (!barefoot) await shoes();
+    G.socks.top = 0.28 * K * dims.leg;
+    if (!kit.decals.back && !kit.decals._built) {
+      kit.decals._built = true;
+      const yb = (y) => y * K;
+      kit.decals.back = extractDecal(G.jersey.geo, { min: { x: -0.16 * K, y: yb(1.10), z: -1 }, max: { x: 0.16 * K, y: yb(1.43), z: 0.0 } }, (nx, ny, nz) => nz < -0.3,
+        (x, y) => [0.5 * (0.5 - x / (0.32 * K)), (y - yb(1.10)) / (yb(1.43) - yb(1.10))]);
+      kit.decals.front = extractDecal(G.jersey.geo, { min: { x: -0.07 * K, y: yb(1.22), z: 0 }, max: { x: 0.07 * K, y: yb(1.36), z: 1 } }, (nx, ny, nz) => nz > 0.3,
+        (x, y) => [0.5 + 0.25 * (0.5 + x / (0.14 * K)), 1 - (100 + (1 - (y - yb(1.22)) / (yb(1.36) - yb(1.22))) * 200) / 512]);
+      kit.decals.shorts = extractDecal(G.shorts.geo, { min: { x: 0.04 * K, y: yb(0.70), z: 0 }, max: { x: 0.17 * K, y: yb(0.86), z: 1 } }, (nx, ny, nz) => nz > 0.25,
+        (x, y) => [0.75 + 0.25 * ((x - 0.04 * K) / (0.13 * K)), 1 - (28 + (1 - (y - yb(0.70)) / (yb(0.86) - yb(0.70))) * 200) / 512]);
+    }
+  } else if (outfit === 'suit') {
+    await mk('jacket', jerseyScene(rig, bind, body, { sleeve: 1.6, loose: 1.9, waistLoose: 0.018, hem: pelY - 0.15 * K }));
+    await mk('trousers', shortsScene(rig, bind, body, { hem: 0.10 * K, baggy: 0.55 }));
+    if (!barefoot) await shoes();
+  } else {
+    await mk('tee', jerseyScene(rig, bind, body, { sleeve: 0.5, loose: 1.5, waistLoose: 0.020, hem: pelY - 0.075 * K }));
+    await mk('kshorts', shortsScene(rig, bind, body, { hem: 0.44 * K * dims.leg, baggy: 1.2 }));
+  }
+  return kit;
 }
 
 const bodyVariantCache = new Map();
@@ -139,9 +135,78 @@ export async function getHeadGeo(bodyKit, faceKey, face) {
   const q = QUALITY[bodyKit.quality];
   const sc = buildHeadScene(rig, bind, face);
   const geo = buildSkinnedGeometry(sc, sc.bounds(), q.head, bind, rig, { kw: 0.007, wide: 0.05, tint: (t, x, y, z, nx, ny, nz) => skinTint(t, x, y, z, nx, ny, nz, bodyKit.dims.scale), aoRadius: 0.02, aoStrength: 0.8 });
+  addFaceUVs(geo, bodyKit.dims.scale);
   headCache.set(key, geo);
   return geo;
 }
+/** Planar front projection UVs (head-local x,y). Vertices behind the face plane are pushed off the top edge. */
+const FACE_S = 0.24, FACE_CY = 0.03;
+function addFaceUVs(geo, K) {
+  const pos = geo.getAttribute('position'), uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const lx = pos.getX(i) - HEAD_ORIGIN[0], ly = (pos.getY(i) - HEAD_ORIGIN[1] * K) / K, lz = pos.getZ(i) - HEAD_ORIGIN[2];
+    uv[i * 2] = 0.5 + lx / FACE_S; uv[i * 2 + 1] = 0.5 + (ly - FACE_CY) / FACE_S + (lz < 0.0 ? 4 : 0);
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+const faceTexCache = new Map();
+/** Painted face detail (brows, lips, lid creases, nostrils, nasolabial folds, stubble); white = neutral so it multiplies the skin tone. */
+function faceTexture(hairHex, beard = 0.5) {
+  const key = hairHex + '|' + beard;
+  if (faceTexCache.has(key)) return faceTexCache.get(key);
+  const N = 512, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, N, N);
+  const X = (lx) => (0.5 + lx / FACE_S) * N, Y = (ly) => (0.5 - (ly - FACE_CY) / FACE_S) * N, L = (m) => m / FACE_S * N;
+  g.globalCompositeOperation = 'multiply';
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const hc = new THREE.Color(hairHex), hr = Math.round(40 + hc.r * 150), hg = Math.round(32 + hc.g * 130), hb = Math.round(28 + hc.b * 120);
+  const blob = (x, y, rx, ry, col) => { const gr = g.createRadialGradient(x, y, 0, x, y, 1); gr.addColorStop(0, col[0]); gr.addColorStop(1, col[1]); g.save(); g.translate(x, y); g.scale(rx, ry); g.translate(-x, -y); g.fillStyle = gr; g.beginPath(); g.arc(x, y, 1, 0, 6.3); g.fill(); g.restore(); };
+  for (const s of [-1, 1]) {
+    // cheek warmth + eye-socket shadow + under-eye
+    blob(X(s * 0.046), Y(0.034), L(0.024), L(0.02), ['rgba(238,160,150,0.55)', 'rgba(255,255,255,0)']);
+    blob(X(s * 0.032), Y(0.071), L(0.024), L(0.017), ['rgba(190,140,125,0.55)', 'rgba(255,255,255,0)']);
+    blob(X(s * 0.032), Y(0.056), L(0.02), L(0.008), ['rgba(200,150,140,0.35)', 'rgba(255,255,255,0)']);
+    // upper lid crease
+    g.strokeStyle = 'rgba(120,70,60,0.55)'; g.lineWidth = L(0.0012);
+    g.beginPath(); for (let i = 0; i <= 12; i++) { const t = i / 12, lx = s * (0.014 + t * 0.036), ly = 0.0865 + 0.005 * Math.sin(t * Math.PI) - 0.0025 * t; i ? g.lineTo(X(lx), Y(ly)) : g.moveTo(X(lx), Y(ly)); } g.stroke();
+    // eyebrows: many fine hairs, thick in the middle
+    for (let k = 0; k < 46; k++) {
+      const t0 = Math.random() * 0.95, ax = 0.011 + t0 * 0.043;
+      const yb = 0.0965 + (ax - 0.010) * 0.10 - (ax > 0.040 ? (ax - 0.040) * 1.8 : 0) + (Math.random() - 0.5) * 0.0055 * (1 - t0 * 0.4);
+      g.strokeStyle = `rgba(${hr},${hg},${hb},${0.35 + Math.random() * 0.4})`; g.lineWidth = L(0.0011);
+      g.beginPath(); g.moveTo(X(s * ax), Y(yb)); g.lineTo(X(s * (ax + 0.0035)), Y(yb + 0.0022 - t0 * 0.0016)); g.stroke();
+    }
+    // nostrils, nasolabial folds, mouth corners
+    blob(X(s * 0.0115), Y(0.0245), L(0.0034), L(0.0022), ['rgba(60,28,22,0.9)', 'rgba(255,255,255,0)']);
+    g.strokeStyle = 'rgba(150,100,90,0.15)'; g.lineWidth = L(0.0018);
+    g.beginPath(); g.moveTo(X(s * 0.021), Y(0.024)); g.quadraticCurveTo(X(s * 0.030), Y(0.010), X(s * 0.030), Y(-0.002)); g.stroke();
+    blob(X(s * 0.0225), Y(-0.0125), L(0.0028), L(0.0022), ['rgba(110,50,46,0.7)', 'rgba(255,255,255,0)']);
+  }
+  // lips (upper thinner, lower fuller) with a dark seam
+  const lipC = -0.0125;
+  g.fillStyle = 'rgba(214,142,130,0.92)';
+  g.beginPath(); g.moveTo(X(-0.0225), Y(lipC)); g.quadraticCurveTo(X(-0.012), Y(lipC + 0.0085), X(-0.003), Y(lipC + 0.0078)); g.quadraticCurveTo(X(0), Y(lipC + 0.0062), X(0.003), Y(lipC + 0.0078)); g.quadraticCurveTo(X(0.012), Y(lipC + 0.0085), X(0.0225), Y(lipC)); g.quadraticCurveTo(X(0), Y(lipC + 0.0005), X(-0.0225), Y(lipC)); g.fill();
+  g.fillStyle = 'rgba(218,148,136,0.92)';
+  g.beginPath(); g.moveTo(X(-0.0225), Y(lipC)); g.quadraticCurveTo(X(-0.012), Y(lipC - 0.0125), X(0), Y(lipC - 0.0128)); g.quadraticCurveTo(X(0.012), Y(lipC - 0.0125), X(0.0225), Y(lipC)); g.quadraticCurveTo(X(0), Y(lipC - 0.0012), X(-0.0225), Y(lipC)); g.fill();
+  g.strokeStyle = 'rgba(85,35,32,0.9)'; g.lineWidth = L(0.0013);
+  g.beginPath(); g.moveTo(X(-0.0235), Y(lipC + 0.0004)); g.quadraticCurveTo(X(-0.010), Y(lipC - 0.0014), X(0), Y(lipC - 0.0004)); g.quadraticCurveTo(X(0.010), Y(lipC - 0.0014), X(0.0235), Y(lipC + 0.0004)); g.stroke();
+  blob(X(0), Y(lipC - 0.0175), L(0.014), L(0.005), ['rgba(190,140,130,0.4)', 'rgba(255,255,255,0)']);   // under-lip shadow
+  // light stubble on chin, jaw and upper lip
+  if (beard > 0) {
+    g.fillStyle = `rgba(70,70,80,${0.06 * beard})`;
+    for (let k = 0; k < 2600; k++) {
+      const lx = (Math.random() - 0.5) * 0.11, ly = -0.06 + Math.random() * 0.056;
+      const jaw = Math.abs(lx) < 0.032 + (ly + 0.06) * 0.7; if (!jaw) continue;
+      g.fillRect(X(lx), Y(ly), 1.4, 1.4);
+    }
+  }
+  g.globalCompositeOperation = 'source-over';
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  faceTexCache.set(key, t);
+  return t;
+}
+
 const hairCache = new Map();
 export function getHairGeo(bodyKit, style, faceKey, face) {
   if (!style || style === 'bald') return null;
@@ -193,7 +258,10 @@ export function createHuman(bodyKit, headGeo, spec) {
   const K = bodyKit.dims.scale;
   const parts = {};
   parts.body = add(bodyGeoFor(bodyKit, spec.outfit || 'sport'), skinMat, 'body');
-  parts.head = add(headGeo, skinMat, 'head');
+  const headMat = skinMat.clone(); headMat.onBeforeCompile = skinMat.onBeforeCompile;
+  headMat.customProgramCacheKey = () => 'skin-head';
+  headMat.map = faceTexture(HAIR_COLORS[spec.hairColor ?? 0], spec.beard ?? 0.55); headMat.needsUpdate = true;
+  parts.head = add(headGeo, headMat, 'head');
   parts.handL = add(bodyKit.geo.handL, skinMat, 'handL');
   parts.handR = add(bodyKit.geo.handR, skinMat, 'handR');
   const barefoot = spec.barefoot || outfit === 'kampung';
@@ -251,11 +319,11 @@ export function createHuman(bodyKit, headGeo, spec) {
   const lidMat = new THREE.MeshStandardMaterial({ color: skinTone, roughness: 0.6, metalness: 0 });
   const eyes = {};
   for (const sd of ['_l', '_r']) {
-    const eyeGeo = new THREE.SphereGeometry(0.0125 * K, 20, 14);
+    const eyeGeo = new THREE.SphereGeometry(0.0116 * K, 20, 14);
     const eye = new THREE.Mesh(eyeGeo, eyeMat); eye.castShadow = false;
     rig.bones['eye' + sd].add(eye);
-    const up = new THREE.Mesh(new THREE.SphereGeometry(0.0138 * K, 16, 10, 0, Math.PI * 2, 0, 1.15), lidMat);
-    const lo = new THREE.Mesh(new THREE.SphereGeometry(0.0138 * K, 16, 10, 0, Math.PI * 2, Math.PI - 0.85, 0.85), lidMat);
+    const up = new THREE.Mesh(new THREE.SphereGeometry(0.0127 * K, 16, 10, 0, Math.PI * 2, 0, 1.27), lidMat);
+    const lo = new THREE.Mesh(new THREE.SphereGeometry(0.0127 * K, 16, 10, 0, Math.PI * 2, Math.PI - 0.95, 0.95), lidMat);
     rig.bones['eyelid_up' + sd].add(up); rig.bones['eyelid_lo' + sd].add(lo);
     eyes[sd] = eye;
   }

@@ -36,7 +36,7 @@ export class Animator {
     this.rig = human.rig;
     this.poser = human.poser;
     this.b = human.rig.bones;
-    this.basePose = newPose(); this.actPose = newPose(); this.pose = newPose();
+    this.basePose = newPose(); this.actPose = newPose(); this.pose = newPose(); this.prevPose = newPose(); this.tmpPose = newPose(); this.prev = null;
     this.mask = MASK.all;
     // locomotion state
     this.vf = 0; this.vl = 0; this.crouch = 0.6; this.phase = Math.random(); this.t = Math.random() * 10;
@@ -58,7 +58,7 @@ export class Animator {
     this.ikEnabled = true;
     this.yaw = 0;
     this.speedScale = 1;
-    this.airPose = null;
+    this.airPose = null; this._hold = null; this._landBlend = 0;
     this.events = [];
     this._lastFoot = { L: new V3(), R: new V3() };
   }
@@ -79,6 +79,7 @@ export class Animator {
     let scale = opts.timeScale ?? 1;
     const ct = clip.events?.contact;
     if (opts.contactAt !== undefined && ct) scale = clamp(ct / Math.max(0.05, opts.contactAt), 0.55, 2.2);
+    if (this.act && !this.act.done && this.act.w > 0.03) this.prev = { clip: this.act.clip, time: this.act.time, scale: this.act.scale, w: this.act.w, mask: this.act.mask, loop: this.act.loop };
     this.act = {
       clip, time: opts.startAt ?? 0, scale, fadeIn: opts.fadeIn ?? 0.12, fadeOut: opts.fadeOut ?? 0.22,
       w: 0, loop: opts.loop ?? clip.loop, mask: opts.mask ?? (clip.meta?.mask ? MASK[clip.meta.mask] : MASK.all), done: false,
@@ -132,10 +133,24 @@ export class Animator {
       A.w = clamp(A.w + (target === 1 ? 1 : -1) * dt * rate, 0, 1);
       if (A.ending && A.w <= 0) { A.done = true; this.act = null; this.contact = null; this.pins = { L: null, R: null }; }
       else {
+        // cross-fade out of the previous action while the new one fades in
+        let under = this.basePose;
+        if (this.prev) {
+          const P = this.prev;
+          P.time += dt * P.scale; if (P.loop) P.time %= P.clip.duration; else P.time = Math.min(P.time, P.clip.duration);
+          P.w -= dt / Math.max(0.06, A.fadeIn);
+          if (P.w <= 0) this.prev = null;
+          else {
+            P.clip.sample(P.time, this.prevPose);
+            for (const c of WRAP) { const a = this.prevPose[c]; if (a > Math.PI || a < -Math.PI) this.prevPose[c] = a - Math.PI * 2 * Math.round(a / (Math.PI * 2)); }
+            lerpPoseMasked(this.tmpPose, this.basePose, this.prevPose, smooth(P.w), P.mask);
+            under = this.tmpPose;
+          }
+        }
         A.clip.sample(A.time, this.actPose);
         for (const c of WRAP) { const a = this.actPose[c]; if (a > Math.PI || a < -Math.PI) this.actPose[c] = a - Math.PI * 2 * Math.round(a / (Math.PI * 2)); }
         pose = this.pose;
-        lerpPoseMasked(pose, this.basePose, this.actPose, smooth(A.w), A.mask);
+        lerpPoseMasked(pose, under, this.actPose, smooth(A.w), A.mask);
       }
     }
     if (pose === this.basePose) { this.pose.set(pose); pose = this.pose; }
@@ -151,10 +166,27 @@ export class Animator {
 
     if (this.ikEnabled) this._ik(dt);
 
-    // ground fit
-    const low = lowestPoint(rig);
-    this.groundY = -low;
-    b.root.position.y = this.groundY + this.jumpY;
+    // ground fit (frozen during flight so the body follows the jump arc; feet may leave the floor)
+    let fit = -lowestPoint(rig);
+    const air = this.act && this.act.clip.meta && this.act.clip.meta.air;
+    let jump = 0;
+    if (air) {
+      const t = this.act.time;
+      if (t > air.t0 && t < air.t1) {
+        if (this._hold === null || this._hold === undefined) this._hold = this.groundY;
+        fit = this._hold; const u = (t - air.t0) / (air.t1 - air.t0); jump = air.peak * 4 * u * (1 - u);
+        this._landBlend = 1;
+      } else if (this._hold !== null && this._hold !== undefined) {
+        this._landBlend = (this._landBlend ?? 1) - dt * 9;
+        if (this._landBlend <= 0) { this._hold = null; this._landBlend = 0; } else fit = fit + (this._hold - fit) * this._landBlend;
+      }
+    } else if (this._hold !== null && this._hold !== undefined) {
+      this._landBlend = (this._landBlend ?? 0) - dt * 9;
+      if (this._landBlend <= 0) this._hold = null; else fit = fit + (this._hold - fit) * this._landBlend;
+    }
+    this.jumpY = jump;
+    this.groundY = fit;
+    b.root.position.y = fit + jump;
     rig.root.updateMatrixWorld(true);
     // eyes
     this._eyes();
@@ -296,6 +328,8 @@ export class Animator {
 
   /** World position of a bone-local point (after the last update). */
   worldPoint(boneName, x = 0, y = 0, z = 0, out = new V3()) { return out.set(x, y, z).applyMatrix4(this.b[boneName].matrixWorld); }
+  /** Height of the character's root above the ground (jump arc), for gameplay. */
+  get airborneHeight() { return this.jumpY; }
   consumeEvents() { const e = this.events; this.events = []; return e; }
 }
 

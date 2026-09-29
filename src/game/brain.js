@@ -133,7 +133,7 @@ export class TeamBrain {
     const idx = this.nextTouch();
     if (!idx) { this.plan = null; return; }
     // Don't churn a plan that is already executing or about to start
-    if (this.plan && (this.plan.started || this.plan.tStart - m.time < 0.16)) return;
+    if (this.plan && (this.plan.started || this.plan.armed || this.plan.tStart - m.time < 0.16)) return;
     const cands = this.players.filter((p) => !(r.lastPlayer === p.id && r.possession === this.team && r.lastPlayerRun >= 2 && !p.busy));
     const skills = idx === 1 ? RECEIVE : idx === 2 ? SETS : ATTACK;
     let best = null;

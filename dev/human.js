@@ -20,7 +20,7 @@ const cam = new THREE.PerspectiveCamera(+q.get('fov') || 30, W / H, 0.05, 50);
 const t0 = performance.now();
 const team = TEAMS[q.get('team') || 'THA'];
 const quality = q.get('quality') || 'high';
-const kitB = await getBodyKit(q.get('build') || 'killer', quality);
+const kitB = await getBodyKit(q.get('build') || 'killer', quality); await (await import('../src/character/humanFactory.js')).ensureOutfit(kitB, q.get('outfit') || 'sport', q.get('bare') === '1');
 log(`kit built ${(performance.now() - t0).toFixed(0)}ms`);
 const rng = makeRng(+q.get('seed') || 7);
 const face = randomFace(rng);
